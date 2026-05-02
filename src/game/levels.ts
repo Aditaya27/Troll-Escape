@@ -6,24 +6,34 @@ const rawLevels = [
     id: 1,
     name: "Level 1: Troll Free",
     grid: [
+      "vvvvvvvvvvvvvv",
+      "..............",
       ".S..........G.",
       "XXXXXXXXXXXXXX",
     ]
   },
   {
     id: 2,
-    name: "Level 2: The Jump",
+    name: "Level 2: Easy Jump",
     grid: [
-      ".S.......^.....OO.....G..",
-      "XXXX...XXXX...XXXX...XXXX",
+      ".S....^^.....^......G.",
+      "XXX...XXX...XXX....XXX",
     ]
   },
   {
     id: 3,
-    name: "Level 3: Stepping Stones",
+    name: "Level 3: Obvious Traps",
     grid: [
-      ".S.....!.....G.",
-      "XXXX>XXXXX<XXXX",
+      "...G.............",
+      "..XXX<>X.........",
+      ".................",
+      ".........X.......",
+      ".........v.XXX...",
+      ".....MOO.........",
+      ".....XXXXX.......",
+      "..........XX.....",
+      ".S.....!.......F.",
+      "XXXX>XXXX<XXXXXXX",
     ]
   },
   

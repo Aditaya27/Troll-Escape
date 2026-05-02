@@ -54,15 +54,15 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-gray-900 text-white select-none overflow-hidden touch-none font-mono">
-      <div className="relative w-full max-w-3xl h-full max-h-[600px] bg-black sm:rounded-lg overflow-hidden shadow-2xl ring-4 ring-gray-800">
+    <div className="flex h-[100dvh] w-[100dvw] items-center justify-center bg-gray-900 text-white select-none overflow-hidden touch-none font-mono">
+      <div className="relative w-full h-full sm:max-w-3xl sm:max-h-[600px] bg-black sm:rounded-lg overflow-hidden shadow-none sm:shadow-2xl sm:ring-4 ring-gray-800 flex flex-col">
         
         {appState === 'menu' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
-            <h1 className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2 tracking-widest uppercase">Troll Escape</h1>
-            <p className="text-gray-400 mb-12">A Pixel Puzzle Platformer</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10 overflow-y-auto py-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-emerald-400 mb-2 tracking-widest uppercase text-center shrink-0 mt-auto">Troll Escape</h1>
+            <p className="text-gray-400 mb-8 shrink-0">A Pixel Puzzle Platformer</p>
             
-            <div className="flex flex-col gap-4 w-64">
+            <div className="flex flex-col gap-4 w-64 shrink-0 mb-auto">
               <button 
                 onClick={() => { playClick(); setAppState('levelSelect'); }}
                 className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 px-6 rounded border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0 transition-all uppercase font-bold"
@@ -88,10 +88,10 @@ export default function App() {
         )}
 
         {appState === 'settings' && (
-          <div className="absolute inset-0 flex flex-col items-center text-center justify-center bg-gray-900 z-10">
-            <h2 className="text-3xl font-bold text-white mb-8 uppercase">Settings</h2>
+          <div className="absolute inset-0 flex flex-col items-center text-center justify-center bg-gray-900 z-10 overflow-y-auto py-4">
+            <h2 className="text-3xl font-bold text-white mb-8 uppercase shrink-0 mt-auto">Settings</h2>
             
-            <div className="w-64 space-y-8 mb-8">
+            <div className="w-64 space-y-8 mb-8 shrink-0">
               <div className="flex flex-col gap-2">
                 <label className="flex justify-between font-bold uppercase text-gray-300">
                   <span>BGM Vol</span>
@@ -121,7 +121,7 @@ export default function App() {
 
             <button 
               onClick={() => { playClick(); setAppState('menu'); }}
-              className="mt-8 bg-gray-700 hover:bg-gray-600 text-white py-3 px-8 rounded border-b-4 border-gray-800 active:translate-y-1 active:border-b-0 transition-all uppercase font-bold"
+              className="mt-8 mb-auto bg-gray-700 hover:bg-gray-600 text-white py-3 px-8 rounded border-b-4 border-gray-800 active:translate-y-1 active:border-b-0 transition-all uppercase font-bold shrink-0"
             >
               Back
             </button>
@@ -129,10 +129,10 @@ export default function App() {
         )}
 
         {appState === 'levelSelect' && (
-          <div className="absolute inset-0 flex flex-col items-center py-6 bg-gray-900 z-10 px-4">
-            <h2 className="text-3xl font-bold text-white mb-4 uppercase">Select Level</h2>
+          <div className="absolute inset-0 flex flex-col items-center py-6 bg-gray-900 z-10 px-4 overflow-y-auto">
+            <h2 className="text-3xl font-bold text-white mb-4 uppercase shrink-0 mt-auto">Select Level</h2>
             
-            <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
+            <div className="grid grid-cols-3 gap-3 w-full max-w-xs shrink-0">
               {Array.from({ length: 15 }).map((_, i) => {
                 const levelId = i + 1;
                 const isIntroduced = levels.find(l => l.id === levelId);
@@ -183,7 +183,7 @@ export default function App() {
 
             <button 
               onClick={() => { playClick(); setAppState('menu'); }}
-              className="mt-auto bg-gray-700 hover:bg-gray-600 text-white py-3 px-8 rounded border-b-4 border-gray-800 active:translate-y-1 active:border-b-0 transition-all uppercase font-bold"
+              className="mt-auto mb-auto pt-2 pb-2 bg-gray-700 hover:bg-gray-600 text-white py-3 px-8 rounded border-b-4 border-gray-800 active:translate-y-1 active:border-b-0 transition-all uppercase font-bold shrink-0 self-center max-w-xs w-[120px]"
             >
               Back
             </button>
@@ -337,7 +337,7 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
   if (!level) return <div className="text-white">Level not found</div>;
 
   return (
-    <div className="relative w-full h-full bg-gray-900 flex flex-col items-center justify-center">
+    <div className="relative w-full h-full min-h-0 flex-1 bg-gray-900 flex flex-col items-center justify-center">
       <canvas 
         ref={canvasRef} 
         className="w-full h-full object-contain"
@@ -411,11 +411,11 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
 
       {/* Pause Menu Overlay */}
       {isPaused && !hasWon && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20 overflow-y-auto py-4">
           {!showSettings ? (
             <>
-              <h2 className="text-3xl font-bold text-white mb-8 uppercase tracking-wider">Paused</h2>
-              <div className="flex flex-col gap-4 w-64">
+              <h2 className="text-3xl font-bold text-white mb-8 uppercase tracking-wider mt-auto shrink-0">Paused</h2>
+              <div className="flex flex-col gap-4 w-64 mb-auto shrink-0">
                 <button 
                   onClick={() => { playClick(); setIsPaused(false); lastTimeRef.current = performance.now(); }}
                   className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 px-6 rounded border-b-4 border-emerald-700 active:translate-y-1 active:border-b-0 transition-all font-bold uppercase"
@@ -443,10 +443,10 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center w-full">
-              <h2 className="text-3xl font-bold text-white mb-8 uppercase">Settings</h2>
+            <div className="flex flex-col items-center justify-center w-full my-auto pb-4">
+              <h2 className="text-3xl font-bold text-white mb-8 uppercase shrink-0">Settings</h2>
               
-              <div className="w-64 space-y-8 mb-8 text-left">
+              <div className="w-64 space-y-8 mb-8 text-left shrink-0">
                 <div className="flex flex-col gap-2">
                   <label className="flex justify-between font-bold uppercase text-gray-300">
                     <span>BGM Vol</span>
@@ -490,10 +490,10 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
         const nextLevelExists = !!levels.find(l => l.id === levelId + 1);
         
         return (
-          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20 animate-in fade-in duration-500">
-            <h2 className="text-5xl font-bold text-emerald-400 mb-2 uppercase tracking-widest animate-bounce">Escaped!</h2>
-            <p className="text-gray-300 mb-8">You beat {level.name}</p>
-            <div className="flex flex-col items-center gap-4 w-full px-4">
+          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20 animate-in fade-in duration-500 overflow-y-auto py-4">
+            <h2 className="text-5xl font-bold text-emerald-400 mb-2 uppercase tracking-widest animate-bounce mt-auto shrink-0">Escaped!</h2>
+            <p className="text-gray-300 mb-8 shrink-0">You beat {level.name}</p>
+            <div className="flex flex-col items-center gap-4 w-full px-4 mb-auto shrink-0">
               <div className="flex justify-center gap-2 sm:gap-4 w-full">
                 <button 
                   onClick={restartLevel}

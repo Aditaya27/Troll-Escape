@@ -111,6 +111,7 @@ export class GameEngine {
   public tick(dt: number, input: GameInput) {
     if (this.isDead) {
       this.deathTimer += dt;
+      this.updateTraps(dt); // Keep traps moving during death sequence
       for (const p of this.particles) {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
@@ -152,8 +153,7 @@ export class GameEngine {
     }
   }
 
-  private updatePhysics(dt: number, input: GameInput) {
-    // Update traps
+  private updateTraps(dt: number) {
     for (const plat of this.level.platforms) {
       const originX = plat.startX ?? plat.x;
       const originY = plat.startY ?? plat.y;
@@ -168,9 +168,10 @@ export class GameEngine {
         const aboveRect = { x: originX, y: originY - plat.height, width: 50, height: plat.height };
         const blockRect = { x: originX, y: originY, width: 50, height: plat.height };
         
-        if (this.isColliding(pRect, aboveRect) || this.isColliding(pRect, blockRect)) {
+        // Don't trigger if dead to prevent weird sliding after death, but keep sliding if already triggered
+        if (!this.isDead && (this.isColliding(pRect, aboveRect) || this.isColliding(pRect, blockRect))) {
           plat.triggered = true;
-        } else {
+        } else if (!this.isDead) {
           plat.triggered = false;
         }
 
@@ -191,24 +192,49 @@ export class GameEngine {
           plat.x = originX + 50 - currentWidth;
           plat.width = currentWidth;
         }
-      } else if (plat.type === 'popping-spike') {
-        const platCenterX = originX + plat.width / 2;
-        const playerCenterX = this.player.pos.x + this.player.size.x / 2;
-        
+      } else if (plat.type === 'popping-spike' || plat.type === 'popping-spike-down') {
         const pRect = {
           x: this.player.pos.x,
           y: this.player.pos.y,
           width: this.player.size.x,
           height: this.player.size.y
         };
-        const blockX = originX - 12.5;
-        const blockY = originY - 25;
-        const aboveRect = { x: blockX, y: blockY - 50, width: 50, height: 50 };
-        const blockRect = { x: blockX, y: blockY, width: 50, height: 50 };
         
-        if (this.isColliding(pRect, aboveRect) || this.isColliding(pRect, blockRect)) {
+        let blockX = originX;
+        let blockY = originY;
+        let bWidth = plat.width;
+        let bHeight = plat.height;
+
+        if (plat.type === 'popping-spike') {
+           blockX = originX - 12.5;
+           blockY = originY - 25;
+           bWidth = 50;
+           bHeight = 50;
+        } else if (plat.type === 'popping-spike-down') {
+           blockX = originX - 12.5;
+           blockY = originY;
+           bWidth = 50;
+           bHeight = 50;
+        }
+
+        let triggered = false;
+        if (!this.isDead) {
+           if (plat.type === 'popping-spike') {
+               const aboveRect = { x: blockX, y: blockY - bHeight, width: bWidth, height: bHeight };
+               const blockRect = { x: blockX, y: blockY, width: bWidth, height: bHeight };
+               triggered = this.isColliding(pRect, aboveRect) || this.isColliding(pRect, blockRect);
+           } else {
+               const belowRect = { x: blockX, y: blockY + bHeight, width: bWidth, height: bHeight };
+               const blockRect = { x: blockX, y: blockY, width: bWidth, height: bHeight };
+               const leftRect = { x: blockX - bWidth, y: blockY, width: bWidth, height: bHeight };
+               const rightRect = { x: blockX + bWidth, y: blockY, width: bWidth, height: bHeight };
+               triggered = this.isColliding(pRect, belowRect) || this.isColliding(pRect, blockRect) || this.isColliding(pRect, leftRect) || this.isColliding(pRect, rightRect);
+           }
+        }
+        
+        if (triggered) {
           plat.triggered = true;
-        } else {
+        } else if (!this.isDead) {
           plat.triggered = false;
         }
         
@@ -217,8 +243,32 @@ export class GameEngine {
         } else {
           plat.triggerRatio = Math.max((plat.triggerRatio || 0) - dt * 60, 0);
         }
+      } else if (plat.type === 'fake-door') {
+        const pRect = {
+          x: this.player.pos.x,
+          y: this.player.pos.y,
+          width: this.player.size.x,
+          height: this.player.size.y
+        };
+        if (!this.isDead && this.isColliding(pRect, plat)) {
+           plat.triggered = true;
+        }
+        
+        if (plat.triggered) {
+           plat.triggerRatio = Math.min((plat.triggerRatio || 0) + dt * 4, 1);
+        }
       }
     }
+  }
+
+  private updatePhysics(dt: number, rawInput: GameInput) {
+    const input = { ...rawInput };
+    if (this.level.invertControls) {
+      input.left = rawInput.right;
+      input.right = rawInput.left;
+    }
+
+    this.updateTraps(dt);
 
     // Horizontal movement with momentum/acceleration
     const ACCEL = 1000;
@@ -286,14 +336,25 @@ export class GameEngine {
       this.player.state = 'falling';
     }
 
-    // Move X and collide
-    this.player.pos.x += this.player.vel.x * dt;
-    this.handleCollisions('x');
+    const eatingDoor = this.level.platforms.find(p => p.type === 'fake-door' && p.triggered);
+    if (eatingDoor) {
+        this.player.vel.x = 0;
+        this.player.vel.y = 0;
+        this.player.pos.x = eatingDoor.x + eatingDoor.width / 2 - this.player.size.x / 2;
+        if ((eatingDoor.triggerRatio || 0) > 0.5) {
+            this.die();
+            return;
+        }
+    } else {
+        // Move X and collide
+        this.player.pos.x += this.player.vel.x * dt;
+        this.handleCollisions('x');
 
-    // Move Y and collide
-    this.player.pos.y += this.player.vel.y * dt;
-    this.player.onGround = false;
-    this.handleCollisions('y');
+        // Move Y and collide
+        this.player.pos.y += this.player.vel.y * dt;
+        this.player.onGround = false;
+        this.handleCollisions('y');
+    }
 
     // Check Goal
     if (!this.won) {
@@ -344,9 +405,20 @@ export class GameEngine {
           this.die();
           return;
         }
+      } else if (plat.type === 'popping-spike-down' && plat.triggerRatio !== undefined && plat.triggerRatio > 0) {
+        const spikeBox = {
+          x: plat.x,
+          y: plat.y,
+          width: plat.width,
+          height: plat.height * plat.triggerRatio
+        };
+        if (this.isColliding(pRect, spikeBox)) {
+          this.die();
+          return;
+        }
       }
       
-      if (['solid', 'sliding-left', 'sliding-right'].includes(plat.type) && this.isColliding(pRect, plat)) {
+      if (['solid', 'sliding-left', 'sliding-right', 'invisible-solid'].includes(plat.type) && this.isColliding(pRect, plat)) {
         if (axis === 'x') {
           if (this.player.vel.x > 0) { // Moving right
             this.player.pos.x = plat.x - this.player.size.x;
@@ -386,10 +458,14 @@ export class GameEngine {
     // Draw Platforms and Hazards
     this.ctx.lineWidth = 2;
     for (const plat of this.level.platforms) {
+      if (plat.type === 'fake-door') {
+         this.drawDoor(plat, false, 0, true, plat.triggered, plat.triggerRatio || 0);
+         continue;
+      }
       if (['solid', 'sliding-left', 'sliding-right'].includes(plat.type) || plat.type === 'jump-through') {
-        // Fill base
+        // Fill base with a slight overlap to prevent antialiasing gaps between blocks
         this.ctx.fillStyle = '#6b7280';
-        this.ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+        this.ctx.fillRect(Math.floor(plat.x), Math.floor(plat.y), Math.ceil(plat.width) + 1, Math.ceil(plat.height) + 1);
 
         // Rocky patches based on global coordinates for seamless tiling
         const prng = (x: number, y: number) => {
@@ -415,8 +491,8 @@ export class GameEngine {
               } else if (r > 0.85) {
                  this.ctx.fillStyle = '#9ca3af'; // highlight bump
                  this.ctx.fillRect(drawX, drawY, drawW, drawH);
-              }
-           }
+               }
+            }
         }
       } else if (plat.type === 'popping-spike' && plat.triggerRatio !== undefined && plat.triggerRatio > 0) {
         const h = plat.height * plat.triggerRatio;
@@ -425,6 +501,16 @@ export class GameEngine {
         this.ctx.moveTo(plat.x, plat.y + plat.height);
         this.ctx.lineTo(plat.x + plat.width / 2, plat.y + plat.height - h);
         this.ctx.lineTo(plat.x + plat.width, plat.y + plat.height);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#475569';
+        this.ctx.stroke();
+      } else if (plat.type === 'popping-spike-down' && plat.triggerRatio !== undefined && plat.triggerRatio > 0) {
+        const h = plat.height * plat.triggerRatio;
+        this.ctx.fillStyle = '#e2e8f0';
+        this.ctx.beginPath();
+        this.ctx.moveTo(plat.x, plat.y);
+        this.ctx.lineTo(plat.x + plat.width / 2, plat.y + h);
+        this.ctx.lineTo(plat.x + plat.width, plat.y);
         this.ctx.fill();
         this.ctx.strokeStyle = '#475569';
         this.ctx.stroke();
@@ -502,67 +588,7 @@ export class GameEngine {
     }
 
     // Draw Goal (Dungeon Gate)
-    const gx = this.level.goal.x;
-    const gy = this.level.goal.y;
-    const gw = this.level.goal.width;
-    const gh = this.level.goal.height;
-    
-    // Outer rock arch (dome)
-    this.ctx.fillStyle = '#4b5563'; // Dark Gray
-    this.ctx.beginPath();
-    this.ctx.moveTo(gx, gy + gh); // bottom left
-    this.ctx.lineTo(gx, gy + gw / 2); // left wall
-    this.ctx.arc(gx + gw / 2, gy + gw / 2, gw / 2, Math.PI, 0); // top dome
-    this.ctx.lineTo(gx + gw, gy + gh); // right wall
-    this.ctx.fill();
-
-    // Rock details (cracks/blocks)
-    this.ctx.strokeStyle = '#374151'; // Darker gray
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
-    // Inner black void
-    this.ctx.fillStyle = '#030712'; // Pitch black
-    this.ctx.beginPath();
-    this.ctx.moveTo(gx + 10, gy + gh);
-    this.ctx.lineTo(gx + 10, gy + gw / 2 + 5);
-    this.ctx.arc(gx + gw / 2, gy + gw / 2 + 5, gw / 2 - 10, Math.PI, 0);
-    this.ctx.lineTo(gx + gw - 10, gy + gh);
-    this.ctx.fill();
-
-    // Wooden Plank
-    this.ctx.save();
-    this.ctx.beginPath();
-    this.ctx.moveTo(gx + 10, gy + gh);
-    this.ctx.lineTo(gx + 10, gy + gw / 2 + 5);
-    this.ctx.arc(gx + gw / 2, gy + gw / 2 + 5, gw / 2 - 10, Math.PI, 0);
-    this.ctx.lineTo(gx + gw - 10, gy + gh);
-    this.ctx.clip(); // Clip to the void area
-
-    let plankYOffset = 0;
-    if (this.won) {
-      plankYOffset = this.winTime * 60; // Slide up speed
-    }
-
-    const plankTopY = gy + 5 - plankYOffset;
-    const plankHeight = gh;
-
-    // Wood Base
-    this.ctx.fillStyle = '#78350f'; 
-    this.ctx.fillRect(gx + 10, plankTopY, gw - 20, plankHeight + 10);
-    
-    // Wood details (vertical gaps between planks)
-    this.ctx.fillStyle = '#451a03';
-    for(let i = 1; i < 4; i++) {
-        this.ctx.fillRect(gx + 10 + i * ((gw - 20) / 4), plankTopY, 2, plankHeight + 10);
-    }
-    // Horizontal beam
-    this.ctx.fillStyle = '#78350f';
-    this.ctx.fillRect(gx + 10, plankTopY + 15, gw - 20, 10);
-    this.ctx.fillStyle = '#451a03';
-    this.ctx.fillRect(gx + 10, plankTopY + 15, gw - 20, 2);
-    this.ctx.fillRect(gx + 10, plankTopY + + 23, gw - 20, 2);
-
-    this.ctx.restore();
+    this.drawDoor(this.level.goal, this.won, this.winTime, false, false);
 
     this.ctx.save();
     // Fade out player if won
@@ -651,5 +677,114 @@ export class GameEngine {
 
     this.ctx.restore(); // Restore player fade
     this.ctx.restore(); // Restore camera padding
+  }
+
+  // End of game engine rendering helpers
+  private drawDoor(rect: Rect, isWon: boolean, winTime: number = 0, isFake: boolean = false, fakeTriggered: boolean = false, triggerRatio: number = 0) {
+    const gx = rect.x;
+    const gy = rect.y;
+    const gw = rect.width;
+    const gh = rect.height;
+    
+    // Outer rock arch (dome)
+    this.ctx.fillStyle = '#4b5563'; // Dark Gray
+    this.ctx.beginPath();
+    this.ctx.moveTo(gx, gy + gh); // bottom left
+    this.ctx.lineTo(gx, gy + gw / 2); // left wall
+    this.ctx.arc(gx + gw / 2, gy + gw / 2, gw / 2, Math.PI, 0); // top dome
+    this.ctx.lineTo(gx + gw, gy + gh); // right wall
+    this.ctx.fill();
+
+    // Rock details (cracks/blocks)
+    this.ctx.strokeStyle = '#374151'; // Darker gray
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    
+    // Inner black void
+    this.ctx.fillStyle = '#030712'; // Pitch black
+    this.ctx.beginPath();
+    this.ctx.moveTo(gx + 10, gy + gh);
+    this.ctx.lineTo(gx + 10, gy + gw / 2 + 5);
+    this.ctx.arc(gx + gw / 2, gy + gw / 2 + 5, gw / 2 - 10, Math.PI, 0);
+    this.ctx.lineTo(gx + gw - 10, gy + gh);
+    this.ctx.fill();
+
+    if (isFake && fakeTriggered) {
+        // Draw tongue
+        const tongueY = gy + gh - (triggerRatio * 30);
+        this.ctx.fillStyle = '#f87171'; // tongue
+        this.ctx.beginPath();
+        this.ctx.arc(gx + gw / 2, Math.max(gy + gw / 2 + 5, tongueY), gw / 2 - 15, Math.PI, 0);
+        this.ctx.fill();
+
+        // Reveal teeth as ratio goes above 0.5
+        if (triggerRatio > 0.5) {
+            const teethRatio = (triggerRatio - 0.5) * 2; // 0 to 1
+            const jawOffset = (1 - teethRatio) * 15;
+            
+            this.ctx.fillStyle = '#ffffff'; // teeth
+            // Top teeth dropping down
+            for (let i = 0; i < 4; i++) {
+               this.ctx.beginPath();
+               const tx = gx + 15 + i * 8;
+               const topY = gy + gw / 2 - jawOffset;
+               this.ctx.moveTo(tx, topY);
+               this.ctx.lineTo(tx + 4, topY + 10);
+               this.ctx.lineTo(tx + 8, topY);
+               this.ctx.fill();
+            }
+            // Bottom teeth rising up
+            for (let i = 0; i < 4; i++) {
+               this.ctx.beginPath();
+               const tx = gx + 15 + i * 8;
+               const botY = gy + gh + jawOffset;
+               this.ctx.moveTo(tx, botY);
+               this.ctx.lineTo(tx + 4, botY - 10);
+               this.ctx.lineTo(tx + 8, botY);
+               this.ctx.fill();
+            }
+        }
+    }
+
+    // Wooden Plank
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.moveTo(gx + 10, gy + gh);
+    this.ctx.lineTo(gx + 10, gy + gw / 2 + 5);
+    this.ctx.arc(gx + gw / 2, gy + gw / 2 + 5, gw / 2 - 10, Math.PI, 0);
+    this.ctx.lineTo(gx + gw - 10, gy + gh);
+    this.ctx.clip(); // Clip to the void area
+
+    let plankYOffset = 0;
+    if (isWon) {
+      plankYOffset = winTime * 60; // Slide up speed
+    } else if (isFake && fakeTriggered) {
+      if (triggerRatio < 0.5) {
+         plankYOffset = (triggerRatio * 2) * 60; // Smooth slide up
+      } else {
+         plankYOffset = 60; // Stays up
+      }
+    }
+
+    const plankTopY = gy + 5 - plankYOffset;
+    const plankHeight = gh;
+
+    // Wood Base
+    this.ctx.fillStyle = '#78350f'; 
+    this.ctx.fillRect(gx + 10, plankTopY, gw - 20, plankHeight + 10);
+    
+    // Wood details (vertical gaps between planks)
+    this.ctx.fillStyle = '#451a03';
+    for(let i = 1; i < 4; i++) {
+        this.ctx.fillRect(gx + 10 + i * ((gw - 20) / 4), plankTopY, 2, plankHeight + 10);
+    }
+    // Horizontal beam
+    this.ctx.fillStyle = '#78350f';
+    this.ctx.fillRect(gx + 10, plankTopY + 15, gw - 20, 10);
+    this.ctx.fillStyle = '#451a03';
+    this.ctx.fillRect(gx + 10, plankTopY + 15, gw - 20, 2);
+    this.ctx.fillRect(gx + 10, plankTopY + 23, gw - 20, 2);
+
+    this.ctx.restore();
   }
 }

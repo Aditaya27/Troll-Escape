@@ -244,7 +244,7 @@ class AudioSystem {
     osc.frequency.setValueAtTime(150, now);
     osc.frequency.exponentialRampToValueAtTime(50, now + 0.05);
     
-    gain.gain.setValueAtTime(1.2, now);
+    gain.gain.setValueAtTime(2.4, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
     
     osc.start(now);

@@ -8,7 +8,7 @@ export interface Rect {
 }
 
 export interface Platform extends Rect {
-  type: 'solid' | 'jump-through' | 'spike-single' | 'spike-double' | 'saw' | 'void' | 'sliding-left' | 'sliding-right' | 'popping-spike';
+  type: 'solid' | 'jump-through' | 'spike-single' | 'spike-double' | 'saw' | 'void' | 'sliding-left' | 'sliding-right' | 'popping-spike' | 'popping-spike-down' | 'invisible-solid' | 'fake-door';
   startX?: number;
   startY?: number;
   triggered?: boolean;
@@ -25,6 +25,7 @@ export interface LevelData {
   startPos: Vector2;
   goal: Goal;
   platforms: Platform[];
+  invertControls?: boolean;
 }
 
 export interface PlayerState {
