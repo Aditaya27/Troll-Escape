@@ -262,13 +262,31 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
 
   const level = getLevel(levelId);
 
-  useEffect(() => {
-    if (!canvasRef.current || !level) return;
-    
-    // Set internal resolution (zoomed out 100% by doubling)
-    canvasRef.current.width = 1200;
-    canvasRef.current.height = 800;
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!canvasRef.current || !wrapperRef.current || !level) return;
+
+    // We keep a constant internal height of 800, and scale width by aspect ratio
+    const resizeCanvas = () => {
+      if (wrapperRef.current && canvasRef.current) {
+        const { clientWidth, clientHeight } = wrapperRef.current;
+        if (clientWidth === 0 || clientHeight === 0) return;
+        const targetHeight = 800;
+        const aspect = clientWidth / clientHeight;
+        canvasRef.current.width = targetHeight * aspect;
+        canvasRef.current.height = targetHeight;
+        // Optionally force a render to avoid empty frame during pause
+        if (engineRef.current && isPaused) {
+           engineRef.current.render();
+        }
+      }
+    };
+
+    resizeCanvas();
+    const observer = new ResizeObserver(resizeCanvas);
+    observer.observe(wrapperRef.current);
+    
     engineRef.current = new GameEngine(canvasRef.current, level, () => {
       setHasWon(true);
     });
@@ -289,9 +307,10 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
     requestRef.current = requestAnimationFrame(animate);
 
     return () => {
+      observer.disconnect();
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [level, isPaused]); // Re-bind if level changes or pause changes (to pause logic)
+  }, [levelId, isPaused, hasWon]); // Re-bind if level changes or pause changes (to pause logic)
 
   // Keyboard controls
   useEffect(() => {
@@ -337,7 +356,7 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
   if (!level) return <div className="text-white">Level not found</div>;
 
   return (
-    <div className="relative w-full h-full min-h-0 flex-1 bg-gray-900 flex flex-col items-center justify-center">
+    <div ref={wrapperRef} className="relative w-full h-full min-h-0 flex-1 bg-gray-900 flex flex-col items-center justify-center">
       <canvas 
         ref={canvasRef} 
         className="w-full h-full object-contain"
