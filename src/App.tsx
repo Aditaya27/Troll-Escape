@@ -267,15 +267,12 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
   useEffect(() => {
     if (!canvasRef.current || !wrapperRef.current || !level) return;
 
-    // We keep a constant internal height of 800, and scale width by aspect ratio
     const resizeCanvas = () => {
       if (wrapperRef.current && canvasRef.current) {
         const { clientWidth, clientHeight } = wrapperRef.current;
         if (clientWidth === 0 || clientHeight === 0) return;
-        const targetHeight = 800;
-        const aspect = clientWidth / clientHeight;
-        canvasRef.current.width = targetHeight * aspect;
-        canvasRef.current.height = targetHeight;
+        canvasRef.current.width = clientWidth;
+        canvasRef.current.height = clientHeight;
         // Optionally force a render to avoid empty frame during pause
         if (engineRef.current && isPaused) {
            engineRef.current.render();
