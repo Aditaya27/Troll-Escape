@@ -337,10 +337,10 @@ function GameView({ levelId, isPaused, setIsPaused, hasWon, setHasWon, onQuitToM
   if (!level) return <div className="text-white">Level not found</div>;
 
   return (
-    <div className="relative w-full h-full bg-gray-900">
+    <div className="relative w-full h-full bg-gray-900 flex flex-col items-center justify-center">
       <canvas 
         ref={canvasRef} 
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
         style={{ imageRendering: 'pixelated' }}
       />
 
